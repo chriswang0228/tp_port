@@ -36,9 +36,9 @@ np.random.seed(0)
 
 import segmentation_models_pytorch_v2
 
-otho_img = cv2.imread('../dataset/clip/clip.jpg')
-clip_mask = cv2.imread('/home/chriswang/project/tp_port/dataset/clip/clip_mask.png')
-road_id_mask = cv2.imread('/home/chriswang/project/tp_port/dataset/clip/road_id_mask_compression.png', 0)
+otho_img = cv2.imread('../data_ckpt/dataset/clip/clip.jpg')
+clip_mask = cv2.imread('../data_ckpt/dataset/clip/clip_mask.png')
+road_id_mask = cv2.imread('../data_ckpt/dataset/clip/road_id_mask_compression.png', 0)
 detected_area_map = np.zeros(road_id_mask.shape)
 road_id_dict = {}
 for i in np.unique(road_id_mask)[1:]:
@@ -53,7 +53,7 @@ total_area_dict = {}
 for i in np.unique(road_id_mask)[1:]:
     a = (road_id_mask==i).sum()/(otho_pix_per_meter/10)**2   #m^2
     total_area_dict[i] = a 
-model=torch.load('/home/chriswang/project/tp_port/model_weight/triple_class/crack_UPP(TL).pt')
+model=torch.load('../data_ckpt/ckpt/crack_UPP(TL).pt')
 model.eval().to(device)   
 
 IMAGE_PATH = cfg.file_path
