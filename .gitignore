@@ -1,0 +1,12 @@
+dataset/*
+code/*txt
+code/*csv
+code/*pkl
+code/*sh
+code/*ipynb
+/draw
+/l_curve
+/model_weight
+/output
+/prediction_tcmodel
+/report_img
