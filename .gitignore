@@ -1,4 +1,5 @@
 dataset/*
+output/*
 code/*txt
 code/*csv
 code/*pkl
@@ -6,7 +7,9 @@ code/*sh
 code/*ipynb
 /draw
 /l_curve
-/model_weight
-/output
+/*model_weight
 /prediction_tcmodel
 /report_img
+/result
+ckpt/*
+ckpt/crack_ckpt.pth

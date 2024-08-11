@@ -1,12 +1,16 @@
 import cv2
 import numpy as np
-from skimage import io, measure, morphology
+from skimage import measure, morphology
 from math import radians, sin, cos, tan, log, dist
 from sklearn.neighbors import KDTree
 import torch
 from torchvision import transforms as T
 from plantcv import plantcv as pcv
 import math
+from id2color import color_dict
+import matplotlib.colors as mcolors
+import matplotlib.pyplot as plt
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 def lonlat_to_97(lon,lat):
@@ -438,3 +442,198 @@ def pred_expan(H, img):
             if abs(math.degrees(math.atan((x2-x1)/(y2-y1)))-angle1)>5 and abs(math.degrees(math.atan((x2-x1)/(y2-y1)))-angle2)>5:
                 w_problem = True
     return w_problem, line_image
+
+def visualize(image, classes = ['pothole', 'expand', 'crack']):
+    h, w = image.shape
+    label3d = np.zeros([h, w, 3])
+    for i, c in enumerate(classes):
+        label3d[image==i+1]=color_dict[c]
+    label3d = label3d.astype('uint8')
+    return label3d
+        
+def rgb2idx(image, classes = ['pothole', 'expand', 'crack']):
+    image = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
+    img = np.zeros_like(image)
+    gray_color = (np.array([np.dot(color_dict[i], np.array([0.2989, 0.5870, 0.1140])) for i in classes])+0.5).astype('uint8')
+    for i, c in enumerate(gray_color):
+            img[ image == c ] = i+1
+    return img
+
+def ph_hml(img, scale):
+    img = img == 1
+    inst_mask, num = measure.label(img, return_num=True)
+    h,m,l=0,0,0
+    for i in np.unique(inst_mask)[1:]:
+        pix = (inst_mask==i).sum()
+        area = pix*scale**2  #cm^2
+        sqrt_area = area**(1/2)
+        if sqrt_area < 15:
+            l=l+area
+        elif sqrt_area > 30:
+            h=h+area
+        else:
+            m=m+area
+    [h,m,l] = np.array([h,m,l])/10000
+    return [h,m,l]
+
+def ph_dens(hml, road_area):
+    [h, m, l] = np.array(hml)/road_area*100 #總長/面積取密度(%)。
+    if l > 0.1:
+        l=log(l,10)
+        l=21.2+27.15*l+6.41*l**2
+
+    if m > 0.1:
+        m=log(m,10)
+        m=31.4+40.77*m+14.14*m**2
+
+    if h > 0.1:
+        h=log(h,10)
+        h=52.3+43.87*h+10.22*h**2
+
+    todo_list=[]
+    if h>2:
+        todo_list.append(h)
+    if m>2:
+        todo_list.append(m)
+    if l>2:
+        todo_list.append(l)
+
+    return todo_list
+
+def crack_hml(img, scale, dilation):    #1cm = 10pix, 則scale = 0.1
+    widlist=[]
+    estimate_step = int(20/scale)  #每隔20cm需量一次寬度，20cm對應的像素個數
+    for i in range(1):
+        arr=np.array(img)==1
+        c=morphology.remove_small_objects(arr,min_size=100,connectivity=1)
+        image=np.zeros(c.shape)
+        image[c]=1
+        iw,ih = image.shape
+        blobs  = np.copy(image)
+        blobs = blobs.astype(np.uint8)
+
+        skeleton = pcv.morphology.skeletonize(mask=blobs)
+        segmented_img, obj = pcv.morphology.segment_skeleton(skeleton)
+        B = [1, 0]
+        contours = measure.find_contours(blobs, 0.8)
+        bpoints=[]
+        for i in contours:
+            for j in i:
+                bpoints.append(j)
+        bpoints=np.array(bpoints)
+
+        widlist=[]
+
+        for cent in obj:
+            for i,cpoint in enumerate(cent):
+                cent[i] = [j for _,j in sorted(zip(B,cpoint[0]))]
+                
+            centers=np.array(cent).reshape((len(cent),2))
+            bpixel = np.zeros((iw,ih,3),dtype=np.uint8)
+            bpoints = bpoints.astype(int)
+            bpixel[bpoints[:,0],bpoints[:,1],0] = 255
+            for i in range(int(estimate_step/2),len(centers)-int(estimate_step/2),estimate_step):
+                pos = np.array(centers[i]).reshape(1,-1) # input (x,y) where need to calculate crack width
+
+                posn = estimate_normal_for_pos(pos,centers,3)
+
+                interps, widths2 = get_crack_ctrlpts(pos,posn,bpoints,hband=1.5,vband=2)
+                if not widths2.all():
+                    widlist.append(abs(widths2[0][1])+abs(widths2[0][2]))
+        widlist=np.array(widlist)
+    widlist=widlist*scale  #像素寬度轉換為公分
+    widlist=widlist/dilation  #折減寬度以抵銷預測誤差
+    h,m,l=0,0,0
+    for wid in widlist:
+        if wid < 0.3: #寬度小於0.3cm
+            l=l+1
+        elif wid>0.5: #寬度大於0.5cm
+            h=h+1
+        else:
+            m=m+1
+    [h,m,l] = np.array([h,m,l])*0.2 #因每個寬度都代表一個0.2m的裂縫，所以將各級裂縫的數量乘0.2m即可獲得總長。
+
+    return [h,m,l]
+
+def crack_dens(hml, road_area):
+    [h, m, l] = np.array(hml)/road_area*100 #總長/面積取密度(%)。
+    if l > 0.1:
+        l=log(l,10)
+        l=-1.7+4.45*l+5.18*l**2
+
+    if m > 0.1:
+        m=log(m,10)
+        m=2.1+11.51*m+4.93*m**2
+
+    if h > 0.1:
+        h=log(h,10)
+        h=8.3+14.06*h+12.96*h**2
+
+    todo_list=[]
+    if h>2:
+        todo_list.append(h)
+    if m>2:
+        todo_list.append(m)
+    if l>2:
+        todo_list.append(l)
+
+    return todo_list
+
+def N1(x):
+    return x
+def N2(x):
+    return -3.6+0.91*x-0.0017*x**2
+def N3(x):
+    return -6.4+0.82*x-0.0013*x**2
+def N4(x):
+    return -13+0.86*x-0.0015*x**2
+def N5(x):
+    return -12+0.76*x-0.0011*x**2
+def N6(x):
+    return -14.7+0.75*x-0.0011*x**2
+def N7(x):
+    return -18.5+0.86*x-0.0018*x**2
+def estimate_cdv(todo_list):
+    if len(todo_list)>0:
+        todo_list = sorted(todo_list, reverse=True)
+        func_list = reversed([N1, N2, N3, N4, N5, N6, N7][:len(todo_list)])
+        cdv_list = []
+        for i, f in enumerate(func_list):
+            cdv_list.append(f(np.sum(todo_list)))
+            todo_list[-i] = 2
+        cdv = np.max(cdv_list)
+    else:
+        cdv = 0
+
+    return cdv
+
+def score2map(score_dict, id_map, save_path, color_bar = False):
+    cmap = [[0, 255, 0], [200, 255, 0], [255, 255, 0], [255, 170, 0], [255, 120, 0], [255, 70, 0], [255, 0, 0], [0, 0, 0]]
+    thresh = [85, 70, 55, 40, 25, 10, 0]
+    if color_bar:
+        cmap = list(reversed(cmap))
+        cmap = mcolors.ListedColormap(np.array(cmap)/255)
+        output = np.zeros(id_map.shape)
+        for idx in score_dict.keys():
+            score = score_dict[idx]
+            for thre_idx in range(7):
+                if score>thresh[thre_idx]:
+                    output[id_map==idx] = 7-thre_idx
+                    break
+        output = output.astype('uint8')
+        plt.imshow(output[700:2700, 600:2600], cmap=cmap)
+        plt.axis('off')
+        plt.colorbar()
+        plt.savefig(save_path)
+    else:
+        h, w = id_map.shape
+        output = np.zeros([h, w, 3])
+        for idx in score_dict.keys():
+            score = score_dict[idx]
+            for thre_idx in range(7):
+                if score>thresh[thre_idx]:
+                    output[id_map==idx] = cmap[thre_idx]
+                    break
+        output = output.astype('uint8')
+        output = cv2.cvtColor(output, cv2.COLOR_RGB2BGR)
+        cv2.imwrite(save_path, output)
