@@ -1,7 +1,0 @@
-image_path = '../dataset/road/20230530/100FTASK/'
-mask_ph_path = '../output/prediction_c_p/'
-mask_crack_path = '../output/prediction_c/'
-detected_area_path = '../output/detected_area_20230530.png'
-crack_pci_path = 'crack_pci_data_20230530.pkl'
-ph_pci_path = 'ph_pci_data_20230530.pkl'
-total_pci_path = 'total_pci_data_20230530.pkl'
