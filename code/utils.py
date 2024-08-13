@@ -625,6 +625,7 @@ def score2map(score_dict, id_map, save_path, color_bar = False):
         plt.axis('off')
         plt.colorbar()
         plt.savefig(save_path)
+        plt.close()
     else:
         h, w = id_map.shape
         output = np.zeros([h, w, 3])
