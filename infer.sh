@@ -11,4 +11,4 @@ python3 prediction.py --image_path $image_path --save_path $crack_save_path --ck
 python3 PCI.py --otho_image_path '../dataset/clip/clip.jpg' --clip_mask_path '../dataset/clip/clip_mask.png' \
         --road_id_mask_compression '../dataset/clip/road_id_mask_compression.png' --image_path $image_path\
         --mask_ph_path $ph_save_path --mask_crack_path $crack_save_path --save_path '../output/pci_map/'\
-        --output_type 'total' --otho_pix_per_meter 39.89206980085115
+        --otho_pix_per_meter 39.89206980085115

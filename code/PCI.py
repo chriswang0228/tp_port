@@ -23,7 +23,6 @@ parser.add_argument('--image_path', type=str, default='../dataset/road/20230530/
 parser.add_argument('--mask_ph_path', type=str, default='../output/prediction_c_p/', help='pothole mask file path')
 parser.add_argument('--mask_crack_path', type=str, default='../output/prediction_c/', help='crack mask file path')
 parser.add_argument('--save_path', type=str, default='../output/pci_map/', help='pci map save path')
-parser.add_argument('--output_type', type=list, default=['total'], help='output type')
 parser.add_argument('--otho_pix_per_meter', type=float, default=39.89206980085115, help='pixel number per meter in orthophotograph')
 
 args = parser.parse_args()
@@ -151,12 +150,7 @@ if os.path.isdir(args.save_path)==False:
     os.mkdir(args.save_path)
 
 path = args.save_path
-if 'crack' in args.output_type:
-    score2map(crack_score_dict, road_id_mask, path+'crack.png', color_bar = False)
-if 'ph' in args.output_type:
-    score2map(ph_score_dict, road_id_mask, path+'ph.png', color_bar = False)
-if 'total' in args.output_type:
-    score2map(total_score_dict, road_id_mask, path+'total.png', color_bar = False)
+score2map(total_score_dict, road_id_mask, path+'total.png', color_bar = False)
 mask = cv2.imread(path+'total.png')
 mask = cv2.resize(mask, list(reversed(otho_img.shape[:2])), cv2.INTER_NEAREST)
 cv2.imwrite(path+'scale_mask.png', mask)
