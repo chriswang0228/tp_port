@@ -1,5 +1,5 @@
 import numpy as np 
-import torch
+import torch, argparse
 import PIL
 import os
 os.environ["OPENCV_IO_MAX_IMAGE_PIXELS"] = str(pow(2,40))
@@ -9,16 +9,28 @@ from utils import *
 import torch
 import math
 import pickle
-from configs.pci import pci
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 torch.manual_seed(0)
 random.seed(0)
 np.random.seed(0)
 
-otho_img = cv2.imread('../dataset/clip/clip.jpg')
-clip_mask = cv2.imread('../dataset/clip/clip_mask.png')
-road_id_mask = cv2.imread('../dataset/clip/road_id_mask_compression.png', 0)
+parser = argparse.ArgumentParser()
+parser.add_argument('otho_image_path', type=str, default='../dataset/clip/clip.jpg', help='orthophotograph path')
+parser.add_argument('clip_mask_path', type=str, default='../dataset/clip/clip_mask.png', help='orthophotograph mask path')
+parser.add_argument('road_id_mask_compression', type=str, default='../dataset/clip/road_id_mask_compression.png', help='road id mask path')
+parser.add_argument('image_path', type=str, default='../dataset/road/20230530/100FTASK/*.JPG', help='prediction image file path')
+parser.add_argument('mask_ph_path', type=str, default='../output/prediction_c_p/', help='pothole mask file path')
+parser.add_argument('mask_crack_path', type=str, default='../output/prediction_c/', help='crack mask file path')
+parser.add_argument('save_path', type=str, default='../output/pci_map/', help='pci map save path')
+parser.add_argument('output_type', type=list, default=['total'], help='output type')
+parser.add_argument('otho_pix_per_meter', type=float, default=39.89206980085115, help='pixel number per meter in orthophotograph')
+
+args = parser.parse_args()
+
+otho_img = cv2.imread(args.otho_image_path)
+clip_mask = cv2.imread(args.clip_mask_path)
+road_id_mask = cv2.imread(args.road_id_mask_compression, 0)
 detected_area_map = np.zeros(road_id_mask.shape)
 crack_road_id_dict = {}
 ph_road_id_dict = {}
@@ -32,15 +44,16 @@ width = int(clip_mask.shape[1]/10) # keep original width
 height = int(clip_mask.shape[0]/10)
 dim = (width, height)
 clip_mask_compression = cv2.resize(clip_mask, dim) #壓縮十倍減少運算時間
-otho_pix_per_meter = 1/(math.dist([2784295.23560,289479.57382], [2784417.268382,289637.447092])/math.dist([5442, 0], [574, 6298])) #每公尺的正射圖像素數
+#otho_pix_per_meter = 1/(math.dist([2784295.23560,289479.57382], [2784417.268382,289637.447092])/math.dist([5442, 0], [574, 6298])) #每公尺的正射圖像素數
+otho_pix_per_meter = args.otho_pix_per_meter
 total_area_dict = {}
 for i in np.unique(road_id_mask)[1:]:
     a = (road_id_mask==i).sum()/(otho_pix_per_meter/10)**2   #m^2
     total_area_dict[i] = a 
 
-image_path = pci.image_path
-mask_ph_path = pci.mask_ph_path
-mask_crack_path = pci.mask_crack_path
+image_path = args.image_path[:-5]
+mask_ph_path = args.mask_ph_path
+mask_crack_path = args.mask_crack_path
 for img_file in sorted(os.listdir(image_path)):
     try:
         f_path = image_path+img_file
@@ -115,7 +128,7 @@ for img_file in sorted(os.listdir(image_path)):
             area_road_id_dict[i].append(road_area)
     except:
         print(img_file)
-    cv2.imwrite(pci.detected_area_path, detected_area_map)
+    #cv2.imwrite(pci.detected_area_path, detected_area_map)
 
 
 total_score_dict = {}
@@ -133,9 +146,26 @@ for i in area_road_id_dict.keys():
         crack_score_dict[i] = 100 - estimate_cdv(c_todo_list)
         ph_score_dict[i] = 100 - estimate_cdv(p_todo_list)
         total_score_dict[i] = 100 - estimate_cdv(c_todo_list+p_todo_list)
-with open(pci.crack_pci_path, 'wb') as fp:
-    pickle.dump(crack_score_dict, fp)
-with open(pci.ph_pci_path, 'wb') as fp:
-    pickle.dump(ph_score_dict, fp)
-with open(pci.total_pci_path, 'wb') as fp:
-    pickle.dump(total_score_dict, fp)
+
+if os.path.isdir(args.save_path)==False:
+    os.mkdir(args.save_path)
+
+path = args.save_path
+if 'crack' in args.output_type:
+    score2map(crack_score_dict, road_id_mask, path+'crack.png', color_bar = False)
+if 'ph' in args.output_type:
+    score2map(ph_score_dict, road_id_mask, path+'ph.png', color_bar = False)
+if 'total' in args.output_type:
+    score2map(total_score_dict, road_id_mask, path+'total.png', color_bar = False)
+mask = cv2.imread(path+'total.png')
+mask = cv2.resize(mask, list(reversed(otho_img.shape[:2])), cv2.INTER_NEAREST)
+cv2.imwrite(path+'scale_mask.png', mask)
+overlapped_image = (1 - 0.5) * otho_img + 0.5 * mask
+overlapped_image = np.clip(overlapped_image, 0, 255).astype(np.uint8)
+cv2.imwrite(path+'overlap_mask.png', overlapped_image)
+#with open(pci.crack_pci_path, 'wb') as fp:
+#    pickle.dump(crack_score_dict, fp)
+#with open(pci.ph_pci_path, 'wb') as fp:
+#    pickle.dump(ph_score_dict, fp)
+#with open(pci.total_pci_path, 'wb') as fp:
+#    pickle.dump(total_score_dict, fp)

@@ -3,7 +3,6 @@ import cv2, torch
 from PIL import Image
 import numpy as np
 from torchvision import transforms as T
-from id2color import color_dict
 from utils import rgb2idx
 
 class C_P_Dataset(Dataset):
@@ -14,7 +13,6 @@ class C_P_Dataset(Dataset):
         self.mean = [0.485, 0.456, 0.406]
         self.std = [0.229, 0.224, 0.225]
         self.classes = classes
-        #self.gray_color = np.array([np.dot(color_dict[i], np.array([0.2989, 0.5870, 0.1140])) for i in classes]).astype('uint8')
         
     def __len__(self):
         return len(self.X)

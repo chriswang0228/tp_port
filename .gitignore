@@ -3,7 +3,7 @@ output/*
 code/*txt
 code/*csv
 code/*pkl
-code/*sh
+code/tp.sh
 code/*ipynb
 /draw
 /l_curve
