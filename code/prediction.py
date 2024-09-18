@@ -1,4 +1,5 @@
 import torch
+from pathlib import Path
 from torchvision import transforms as T
 import cv2, os, glob, argparse
 import segmentation_models_pytorch_v2 as smp
@@ -21,8 +22,8 @@ class Predictor:
                                               classes=self.n_classes, activation=None, encoder_depth=5, decoder_channels=[256, 128, 64, 32, 16]).to(self.device)
         self.model.load_state_dict(torch.load(self.ckpt))
         self.model.eval()
-        if os.path.isdir(self.save_path)==False:
-            os.mkdir(self.save_path)
+        path = Path(self.save_path)
+        path.mkdir(parents=True, exist_ok=True)
         for img_path in glob.glob(self.image_path):
             img_name = img_path.split('/')[-1].replace('JPG', 'png')
             img = cv2.imread(img_path)
