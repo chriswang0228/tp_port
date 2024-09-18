@@ -16,15 +16,15 @@ random.seed(0)
 np.random.seed(0)
 
 parser = argparse.ArgumentParser()
-parser.add_argument('otho_image_path', type=str, default='../dataset/clip/clip.jpg', help='orthophotograph path')
-parser.add_argument('clip_mask_path', type=str, default='../dataset/clip/clip_mask.png', help='orthophotograph mask path')
-parser.add_argument('road_id_mask_compression', type=str, default='../dataset/clip/road_id_mask_compression.png', help='road id mask path')
-parser.add_argument('image_path', type=str, default='../dataset/road/20230530/100FTASK/*.JPG', help='prediction image file path')
-parser.add_argument('mask_ph_path', type=str, default='../output/prediction_c_p/', help='pothole mask file path')
-parser.add_argument('mask_crack_path', type=str, default='../output/prediction_c/', help='crack mask file path')
-parser.add_argument('save_path', type=str, default='../output/pci_map/', help='pci map save path')
-parser.add_argument('output_type', type=list, default=['total'], help='output type')
-parser.add_argument('otho_pix_per_meter', type=float, default=39.89206980085115, help='pixel number per meter in orthophotograph')
+parser.add_argument('--otho_image_path', type=str, default='../dataset/clip/clip.jpg', help='orthophotograph path')
+parser.add_argument('--clip_mask_path', type=str, default='../dataset/clip/clip_mask.png', help='orthophotograph mask path')
+parser.add_argument('--road_id_mask_compression', type=str, default='../dataset/clip/road_id_mask_compression.png', help='road id mask path')
+parser.add_argument('--image_path', type=str, default='../dataset/road/20230530/100FTASK/', help='prediction image file path')
+parser.add_argument('--mask_ph_path', type=str, default='../output/prediction_c_p/', help='pothole mask file path')
+parser.add_argument('--mask_crack_path', type=str, default='../output/prediction_c/', help='crack mask file path')
+parser.add_argument('--save_path', type=str, default='../output/pci_map/', help='pci map save path')
+parser.add_argument('--output_type', type=list, default=['total'], help='output type')
+parser.add_argument('--otho_pix_per_meter', type=float, default=39.89206980085115, help='pixel number per meter in orthophotograph')
 
 args = parser.parse_args()
 
@@ -51,7 +51,7 @@ for i in np.unique(road_id_mask)[1:]:
     a = (road_id_mask==i).sum()/(otho_pix_per_meter/10)**2   #m^2
     total_area_dict[i] = a 
 
-image_path = args.image_path[:-5]
+image_path = args.image_path
 mask_ph_path = args.mask_ph_path
 mask_crack_path = args.mask_crack_path
 for img_file in sorted(os.listdir(image_path)):

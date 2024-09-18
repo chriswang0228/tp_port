@@ -7,7 +7,7 @@ from utils import pred_alg, visualize
 
 class Predictor:
     def __init__(self, image_path, save_path, ckpt, classes = ['pothole', 'expand', 'crack']):
-        self.image_path = image_path
+        self.image_path = os.path.join(image_path, '*JPG')
         self.save_path = save_path
         self.ckpt = ckpt
         self.classes = classes
@@ -36,16 +36,21 @@ class Predictor:
         
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('image_path', type=str, default='../dataset/road/20230530/100FTASK/*.JPG', help='prediction image file path')
-    parser.add_argument('save_path', type=str, default='../output/prediction_c_p/', help='mask save path')
-    parser.add_argument('ckpt', type=str, default='../ckpt/ph_ckpt.pth', help='model checkpoint')
-    parser.add_argument('classes', type=list, default=['pothole', 'expand', 'crack'], help='classes')
+    parser.add_argument('--image_path', type=str, default='../dataset/road/20230530/100FTASK/', help='prediction image file path')
+    parser.add_argument('--save_path', type=str, default='../output/prediction_c_p/', help='mask save path')
+    parser.add_argument('--ckpt', type=str, default='../ckpt/ph_ckpt.pth', help='model checkpoint')
+    parser.add_argument('--defect', type=str, choices=['crack', 'ph'], default='crack', help='defect type')
     args = parser.parse_args()
+
+    if args.defect == 'crack':
+        classes = ['expand', 'crack']
+    else:
+        classes = ['pothole', 'expand', 'crack']
     predictor = Predictor(
         image_path = args.image_path,
         save_path = args.save_path,
         ckpt = args.ckpt,
-        classes = args.classes
+        classes = classes
         )
     predictor.run()
 

@@ -25,8 +25,10 @@ bash ./download.sh
 
 1. Run Inference:
 
-To perform inference on the images, run the following command:
+To perform inference on the input images:
 ```  
 bash ./infer.sh
 ```  
+By default, the script will look for ``` .JPG ```  images in the specified folder.
+
 2. If your script requires customization (e.g., changing clip paths or input data), edit the infer.sh file accordingly.
